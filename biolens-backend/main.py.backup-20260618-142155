@@ -1,0 +1,384 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from neo4j import GraphDatabase
+
+
+app = FastAPI()
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+driver = GraphDatabase.driver(
+    "bolt://localhost:7687",
+    auth=("neo4j", "Godrej@111")
+)
+
+@app.get("/")
+def root():
+    return {"message": "BioLens Backend Running"}
+
+@app.get("/test")
+def test_neo4j():
+
+    query = """
+    MATCH (n)
+    RETURN count(n) as total
+    """
+
+    with driver.session(database="biolens") as session:
+        result = session.run(query)
+        count = result.single()["total"]
+
+    return {
+        "status": "connected",
+        "nodes": count
+    }
+
+@app.get("/disease/{name}")
+def get_disease(name: str):
+
+    query = """
+    MATCH (d:Disease {name:$name})
+
+    OPTIONAL MATCH (d)-[:ASSOCIATED_WITH]->(g:Gene)
+
+    OPTIONAL MATCH (g)-[:TARGETED_BY]->(dr:Drug)
+
+    RETURN d,g,dr
+    """
+
+    genes = set()
+    drugs = set()
+
+    nodes = []
+    edges = []
+
+    node_ids = set()
+
+    with driver.session(database="biolens") as session:
+
+        result = session.run(query, name=name)
+
+        for record in result:
+
+            disease_node = record["d"]
+            gene_node = record["g"]
+            drug_node = record["dr"]
+
+            disease = disease_node["name"]
+
+            if disease not in node_ids:
+                nodes.append({
+                    "id": disease,
+                    "type": "Disease"
+                })
+                node_ids.add(disease)
+
+            if gene_node:
+
+                gene = gene_node["name"]
+                genes.add(gene)
+
+                if gene not in node_ids:
+                    nodes.append({
+                        "id": gene,
+                        "type": "Gene"
+                    })
+                    node_ids.add(gene)
+
+                edges.append({
+                    "source": disease,
+                    "target": gene,
+                    "type": "ASSOCIATED_WITH"
+                })
+
+            if drug_node:
+
+                drug = drug_node["name"]
+                drugs.add(drug)
+
+                if drug not in node_ids:
+                    nodes.append({
+                        "id": drug,
+                        "type": "Drug"
+                    })
+                    node_ids.add(drug)
+
+                if gene_node:
+                    edges.append({
+                        "source": gene,
+                        "target": drug,
+                        "type": "TARGETED_BY"
+                    })
+
+    return {
+        "disease": name,
+        "genes": list(genes),
+        "drugs": list(drugs),
+        "nodes": nodes,
+        "edges": edges
+    }
+@app.get("/stats")
+def get_stats():
+
+    with driver.session(database="biolens") as session:
+
+        diseases = session.run(
+            "MATCH (n:Disease) RETURN count(n) as c"
+        ).single()["c"]
+
+        genes = session.run(
+            "MATCH (n:Gene) RETURN count(n) as c"
+        ).single()["c"]
+
+        drugs = session.run(
+            "MATCH (n:Drug) RETURN count(n) as c"
+        ).single()["c"]
+
+        relationships = session.run(
+            "MATCH ()-[r]->() RETURN count(r) as c"
+        ).single()["c"]
+
+    return {
+        "diseases": diseases,
+        "genes": genes,
+        "drugs": drugs,
+        "relationships": relationships
+    }
+
+@app.get("/drug/{drug_name}")
+def get_drug(drug_name: str):
+
+    query = """
+    MATCH (dr:Drug {name:$drug_name})
+    OPTIONAL MATCH (g:Gene)-[:TARGETED_BY]->(dr)
+    OPTIONAL MATCH (d:Disease)-[:ASSOCIATED_WITH]->(g)
+
+    RETURN
+dr.name as drug,
+dr.mechanism as mechanism,
+dr.confidence_score as confidence,
+dr.phase as phase,
+dr.evidence_level as evidence_level,
+collect(DISTINCT g.name) as genes,
+collect(DISTINCT d.name) as diseases,
+count(DISTINCT g) as gene_count,
+count(DISTINCT d) as disease_count
+    """
+
+    with driver.session(database="biolens") as session:
+        result = session.run(query, drug_name=drug_name)
+
+        record = result.single()
+
+        if record is None:
+            return {"error": "Drug not found"}
+
+        return {
+    "drug": record.get("drug"),
+    "genes": record.get("genes", []),
+    "diseases": record.get("diseases", []),
+    "gene_count": record.get("gene_count"),
+    "disease_count": record.get("disease_count"),
+    "mechanism": record.get("mechanism"),
+    "confidence": record.get("confidence"),
+    "phase": record.get("phase"),
+    "evidence_level": record.get("evidence_level"),
+}
+
+@app.get("/alphafold/{gene_name}")
+def get_alphafold(gene_name: str):
+    """
+    Returns AlphaFold structure URL and metadata for a given gene.
+    Queries Neo4j for the gene's UniProt ID if available,
+    then constructs the canonical AlphaFold DB URL.
+    Falls back to gene-name-based search if no UniProt ID stored.
+    """
+    query = """
+    MATCH (g:Gene {name:$gene_name})
+    RETURN g.name AS gene,
+           g.uniprot_id AS uniprot_id
+    """
+
+    with driver.session(database="biolens") as session:
+        result = session.run(query, gene_name=gene_name)
+        record = result.single()
+
+    uniprot_id = None
+    if record and record.get("uniprot_id"):
+        uniprot_id = record["uniprot_id"]
+
+    if uniprot_id:
+        # Canonical AlphaFold DB URL by UniProt ID
+        pdb_url = f"https://alphafold.ebi.ac.uk/entry/{uniprot_id}"
+        structure_url = f"https://alphafold.ebi.ac.uk/files/AF-{uniprot_id}-F1-model_v4.cif"
+    else:
+        # Fallback: search by gene name
+        pdb_url = f"https://alphafold.ebi.ac.uk/search?q={gene_name}"
+        structure_url = None
+
+    return {
+        "gene": gene_name,
+        "uniprot_id": uniprot_id,
+        "alphafold_page": pdb_url,
+        "structure_url": structure_url,
+    }
+
+@app.get("/sequence_search")
+def sequence_search(q: str = ""):
+    """
+    DNA Sequence Search — simple similarity algorithm.
+    Accepts a DNA sequence or gene fragment, compares against gene names stored in Neo4j.
+    Returns the closest matching gene plus associated diseases and drugs.
+    Architecture supports future BLAST integration.
+    """
+    if not q or len(q.strip()) < 3:
+        return {"error": "Query too short. Provide at least 3 characters."}
+
+    query_str = q.strip().upper()
+
+    # Fetch all genes from Neo4j for comparison
+    with driver.session(database="biolens") as session:
+        genes_result = session.run("MATCH (g:Gene) RETURN g.name AS name")
+        gene_names = [record["name"] for record in genes_result]
+
+    # Compute similarity scores using Jaccard-like + substring + prefix matching
+    scored = []
+    for gene in gene_names:
+        gene_upper = gene.upper()
+
+        # Jaccard-like character set similarity
+        q_set = set(query_str)
+        g_set = set(gene_upper)
+        intersection = len(q_set & g_set)
+        union = len(q_set | g_set)
+        jaccard = intersection / union if union > 0 else 0
+
+        # Substring bonus
+        substring_bonus = 0.0
+        if query_str in gene_upper or gene_upper in query_str:
+            substring_bonus = 0.4
+        else:
+            longest = 0
+            for i in range(len(query_str)):
+                for j in range(i + 1, len(query_str) + 1):
+                    sub = query_str[i:j]
+                    if sub in gene_upper:
+                        longest = max(longest, len(sub))
+            substring_bonus = (longest / max(len(query_str), len(gene_upper))) * 0.3
+
+        # Prefix matching bonus
+        common_prefix = 0
+        for a, b in zip(query_str, gene_upper):
+            if a == b:
+                common_prefix += 1
+            else:
+                break
+        prefix_bonus = (common_prefix / max(len(query_str), len(gene_upper))) * 0.2
+
+        score = jaccard * 0.5 + substring_bonus + prefix_bonus
+        scored.append((gene, score))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+
+    if not scored or scored[0][1] < 0.1:
+        return {"query": q, "results": [], "message": "No close gene match found."}
+
+    top_matches = scored[:5]
+
+    results = []
+    with driver.session(database="biolens") as session:
+        for gene_name, sim_score in top_matches:
+            gene_query = """
+            MATCH (g:Gene {name:$gene_name})
+            OPTIONAL MATCH (g)<-[:ASSOCIATED_WITH]-(d:Disease)
+            OPTIONAL MATCH (g)-[:TARGETED_BY]->(dr:Drug)
+            RETURN
+            g.name AS gene,
+            collect(DISTINCT d.name) AS diseases,
+            collect(DISTINCT dr.name) AS drugs
+            """
+            record = session.run(gene_query, gene_name=gene_name).single()
+            if record:
+                results.append({
+                    "gene": record["gene"],
+                    "similarity_score": round(sim_score, 4),
+                    "diseases": record["diseases"] or [],
+                    "drugs": record["drugs"] or [],
+                })
+
+    return {
+        "query": q,
+        "results": results,
+        "algorithm": "jaccard + substring + prefix similarity",
+    }
+
+@app.get("/debug")
+def debug():
+
+    with driver.session(database="biolens") as session:
+
+        d = session.run(
+            "MATCH (d:Disease) RETURN count(d) as c"
+        ).single()["c"]
+
+        g = session.run(
+            "MATCH (g:Gene) RETURN count(g) as c"
+        ).single()["c"]
+
+        dr = session.run(
+            "MATCH (dr:Drug) RETURN count(dr) as c"
+        ).single()["c"]
+
+        return {
+            "diseases": d,
+            "genes": g,
+            "drugs": dr
+        }
+    
+@app.get("/repurpose/{disease_name}")
+def repurpose_drug(disease_name: str):
+
+    query = """
+    MATCH (d:Disease {name:$disease_name})
+          -[:ASSOCIATED_WITH]->
+          (g:Gene)
+
+    MATCH (g)-[:TARGETED_BY]->(dr:Drug)
+
+    RETURN
+    dr.name AS drug,
+    collect(DISTINCT g.name) AS genes,
+    count(DISTINCT g) AS score
+
+    ORDER BY score DESC
+    LIMIT 10
+    """
+
+    with driver.session(database="biolens") as session:
+
+        result = session.run(
+            query,
+            disease_name=disease_name
+        )
+
+        candidates = []
+
+        for record in result:
+
+            candidates.append({
+                "drug": record["drug"],
+                "genes": record["genes"],
+                "score": record["score"]
+            })
+
+    return {
+        "disease": disease_name,
+        "candidates": candidates
+    }

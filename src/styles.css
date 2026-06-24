@@ -1,0 +1,289 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-bio-green: var(--bio-green);
+  --color-bio-cyan: var(--bio-cyan);
+  --color-bio-magenta: var(--bio-magenta);
+  --color-bio-amber: var(--bio-amber);
+  --color-bio-purple: var(--bio-purple);
+  --font-mono: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.25rem;
+  --bio-green: #00ff88;
+  --bio-cyan: #00d4ff;
+  --bio-magenta: #ff00aa;
+  --bio-amber: #ffb800;
+  --bio-purple: #9d00ff;
+
+  --background: #020008;
+  --foreground: #e8fff8;
+  --card: rgba(10, 0, 25, 0.6);
+  --card-foreground: #e8fff8;
+  --popover: #060012;
+  --popover-foreground: #e8fff8;
+  --primary: #00ff88;
+  --primary-foreground: #020008;
+  --secondary: #00d4ff;
+  --secondary-foreground: #020008;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: rgba(232, 255, 248, 0.6);
+  --accent: #ff00aa;
+  --accent-foreground: #020008;
+  --destructive: #ff3366;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 212, 255, 0.15);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: #00d4ff;
+}
+
+.dark {
+  --background: #020008;
+  --foreground: #e8fff8;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    cursor: none;
+  }
+  h1, h2, h3, h4 {
+    letter-spacing: 0.15em;
+  }
+  ::selection {
+    background: var(--bio-green);
+    color: var(--background);
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #02000a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--bio-cyan), var(--bio-green));
+    box-shadow: 0 0 12px var(--bio-cyan);
+    border-radius: 3px;
+  }
+}
+
+/* Aurora background */
+@keyframes aurora {
+  0%, 100% { background-position: 0% 50%, 100% 50%, 50% 0%; }
+  50% { background-position: 100% 50%, 0% 50%, 50% 100%; }
+}
+.bg-aurora {
+  background:
+    radial-gradient(60% 50% at 20% 30%, rgba(0, 255, 136, 0.12), transparent 70%),
+    radial-gradient(50% 50% at 80% 60%, rgba(0, 212, 255, 0.12), transparent 70%),
+    radial-gradient(50% 50% at 50% 90%, rgba(157, 0, 255, 0.12), transparent 70%);
+  background-size: 200% 200%, 200% 200%, 200% 200%;
+  animation: aurora 18s ease-in-out infinite;
+}
+
+/* Glitch + chromatic */
+@keyframes scanlines {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100px; }
+}
+.scanlines::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.04) 0px,
+    rgba(255,255,255,0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  animation: scanlines 8s linear infinite;
+}
+
+.chromatic {
+  text-shadow:
+    0 0 18px rgba(0, 255, 136, 0.5),
+    2px 0 0 rgba(255, 0, 170, 0.7),
+    -2px 0 0 rgba(0, 212, 255, 0.7);
+}
+.chromatic:hover {
+  text-shadow:
+    0 0 24px rgba(0, 255, 136, 0.8),
+    4px 0 0 rgba(255, 0, 170, 0.9),
+    -4px 0 0 rgba(0, 212, 255, 0.9);
+}
+
+/* Pulse hex border */
+@keyframes hexPulse {
+  0%, 100% { filter: drop-shadow(0 0 6px var(--bio-cyan)) drop-shadow(0 0 14px var(--bio-green)); opacity: 0.9; }
+  50% { filter: drop-shadow(0 0 14px var(--bio-cyan)) drop-shadow(0 0 28px var(--bio-green)); opacity: 1; }
+}
+.hex-pulse { animation: hexPulse 3s ease-in-out infinite; }
+
+/* DNA helix */
+@keyframes helixSpin {
+  to { transform: rotateY(360deg); }
+}
+.helix {
+  transform-style: preserve-3d;
+  animation: helixSpin 14s linear infinite;
+}
+
+/* Breathing */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+.breathe { animation: breathe 5s ease-in-out infinite; }
+
+/* Ticker */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track { animation: ticker 60s linear infinite; }
+
+/* Typewriter caret */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.caret::after {
+  content: "▌";
+  margin-left: 2px;
+  animation: blink 1s steps(1) infinite;
+  color: var(--bio-cyan);
+}
+
+/* Gradient border (card) */
+@keyframes borderShift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.gradient-border {
+  position: relative;
+  background: linear-gradient(rgba(2,0,8,0.85), rgba(2,0,8,0.85)) padding-box,
+              linear-gradient(90deg, var(--bio-green), var(--bio-cyan), var(--bio-magenta), var(--bio-purple), var(--bio-green)) border-box;
+  background-size: auto, 200% 100%;
+  border: 1px solid transparent;
+  animation: borderShift 6s linear infinite;
+}
+
+/* Glass */
+.glass {
+  background: rgba(8, 0, 20, 0.45);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 24px rgba(0, 212, 255, 0.08), 0 8px 40px rgba(0,0,0,0.5);
+}
+
+/* Glow utilities */
+.glow-green { box-shadow: 0 0 18px rgba(0,255,136,0.5), inset 0 0 12px rgba(0,255,136,0.15); }
+.glow-cyan  { box-shadow: 0 0 18px rgba(0,212,255,0.5), inset 0 0 12px rgba(0,212,255,0.15); }
+.glow-magenta { box-shadow: 0 0 18px rgba(255,0,170,0.5), inset 0 0 12px rgba(255,0,170,0.15); }
+.text-glow-green { text-shadow: 0 0 12px rgba(0,255,136,0.7); }
+.text-glow-cyan  { text-shadow: 0 0 12px rgba(0,212,255,0.7); }
+
+/* Edge flow */
+@keyframes dashFlow {
+  to { stroke-dashoffset: -200; }
+}
+.edge-flow { stroke-dasharray: 4 6; animation: dashFlow 4s linear infinite; }
+
+/* Pulse radial button */
+@keyframes radialPulse {
+  0% { background-position: 0% 50%; box-shadow: 0 0 12px rgba(0,255,136,0.6); }
+  50% { background-position: 100% 50%; box-shadow: 0 0 28px rgba(0,212,255,0.8); }
+  100% { background-position: 0% 50%; box-shadow: 0 0 12px rgba(0,255,136,0.6); }
+}
+.btn-pulse {
+  background: linear-gradient(90deg, var(--bio-green), var(--bio-cyan), var(--bio-green));
+  background-size: 200% 100%;
+  animation: radialPulse 3s ease-in-out infinite;
+  color: var(--background);
+}
+
+/* Reveal */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.reveal { opacity: 0; }
+.reveal.in-view { animation: revealUp 0.9s cubic-bezier(.2,.7,.2,1) both; }
+
+/* Flash */
+@keyframes flashWhite {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.flash-overlay { animation: flashWhite 0.7s ease-out forwards; }
+
+/* Slide-in panel */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.slide-in-right { animation: slideInRight 0.5s cubic-bezier(.2,.8,.2,1) both; }
+
+/* Donut fill */
+@keyframes donutFill {
+  from { stroke-dashoffset: 283; }
+}
+.donut-fill { animation: donutFill 1.6s ease-out both; }
+
+/* Spinner */
+@keyframes spinSlow { to { transform: rotate(360deg); } }
+@keyframes spinRev  { to { transform: rotate(-360deg); } }
+.spin-slow { animation: spinSlow 6s linear infinite; }
+.spin-rev  { animation: spinRev 4s linear infinite; }
+
+/* 3D tilt helper handled inline via JS */
+.tilt-card { transition: transform 0.15s ease-out; transform-style: preserve-3d; }
+
+/* Hex border SVG sizing */
+.hex-wrap svg { width: 100%; height: 100%; }
+
+/* Custom cursor */
+.cursor-dot {
+  position: fixed; top: 0; left: 0; width: 22px; height: 22px;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+}

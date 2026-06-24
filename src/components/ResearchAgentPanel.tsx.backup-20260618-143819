@@ -1,0 +1,109 @@
+import { useState } from "react";
+
+export default function ResearchAgentPanel({ onClose }: { onClose: () => void }) {
+  const [question, setQuestion] = useState("");
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const EXAMPLE_QUESTIONS = [
+    "Why is APOE4 dangerous?",
+    "Why is ACE linked to Alzheimer's?",
+    "How does Donepezil work?",
+    "How does Metformin work?",
+    "What is the JAK-STAT pathway?",
+  ];
+
+  const submit = async (q?: string) => {
+    const query = q || question;
+    if (!query.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/research_agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: query }),
+      });
+      setResult(await res.json());
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="glass rounded-lg w-full max-w-4xl max-h-[92vh] flex flex-col border border-[color:var(--bio-cyan)]/30">
+        <div className="flex items-center justify-between p-4 border-b border-[color:var(--bio-cyan)]/20 shrink-0">
+          <div>
+            <div className="text-[10px] font-mono text-[color:var(--bio-cyan)] tracking-widest">AI RESEARCH AGENT</div>
+            <h3 className="font-mono text-xl text-glow-green mt-1">Knowledge Graph Q&A</h3>
+          </div>
+          <button onClick={onClose} className="font-mono text-xs px-3 py-1.5 border border-[color:var(--bio-cyan)]/40 hover:bg-[color:var(--bio-cyan)]/10 text-[color:var(--foreground)]">CLOSE ×</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          <div className="flex flex-wrap gap-2">
+            {EXAMPLE_QUESTIONS.map((q) => (
+              <button key={q} onClick={() => submit(q)} className="text-[11px] font-mono px-3 py-1.5 rounded border border-[color:var(--bio-cyan)]/30 text-[color:var(--bio-cyan)] hover:bg-[color:var(--bio-cyan)]/10 transition-all">{q}</button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder="Ask a biomedical question..."
+              className="flex-1 bg-black/40 border border-[color:var(--bio-cyan)]/30 rounded p-3 font-mono text-sm text-white"
+            />
+            <button onClick={() => submit()} disabled={loading} className="font-mono text-sm px-6 py-3 rounded bg-[color:var(--bio-cyan)]/20 text-[color:var(--bio-cyan)] border border-[color:var(--bio-cyan)]/40 hover:bg-[color:var(--bio-cyan)]/30 transition-all shrink-0">
+              {loading ? "…" : "ASK ▶"}
+            </button>
+          </div>
+
+          {result && (
+            <div className="space-y-4 mt-4">
+              <div className="glass rounded-lg p-4">
+                <div className="text-[10px] font-mono text-[color:var(--bio-cyan)] mb-2">ANSWER</div>
+                <p className="font-mono text-sm text-white leading-relaxed">{result.answer}</p>
+              </div>
+
+              {result.reasoning_chain?.length > 0 && (
+                <div className="glass rounded-lg p-4">
+                  <div className="text-[10px] font-mono text-[color:var(--bio-cyan)] mb-3">REASONING CHAIN</div>
+                  {result.reasoning_chain.map((step: string, i: number) => (
+                    <div key={i} className="flex items-start gap-3 py-2 border-b border-white/5 last:border-0">
+                      <span className="w-5 h-5 rounded-full bg-[color:var(--bio-cyan)]/20 text-[10px] font-mono flex items-center justify-center text-[color:var(--bio-cyan)] shrink-0 mt-0.5">{i + 1}</span>
+                      <span className="font-mono text-xs text-[color:var(--foreground)]">{step}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {result.graph_path?.length > 0 && (
+                <div className="glass rounded-lg p-4">
+                  <div className="text-[10px] font-mono text-[color:var(--bio-cyan)] mb-3">GRAPH PATHS ({result.graph_path.length} traversed)</div>
+                  <div className="max-h-[300px] overflow-y-auto space-y-1">
+                    {result.graph_path.map((p: any, i: number) => (
+                      <div key={i} className="font-mono text-[10px] py-1 border-b border-white/5 last:border-0 flex items-center gap-2">
+                        <span className="text-[color:var(--bio-green)]">{p.source}</span>
+                        <span className="text-[color:var(--bio-cyan)]">-[{p.relation}]-</span>
+                        <span className="text-[color:var(--bio-magenta)]">({p.target_type})</span>
+                        <span className="text-[color:var(--foreground)]">{p.target}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 font-mono text-[10px] text-[color:var(--muted-foreground)]">
+                <span>Method: {result.methodology}</span>
+                <span>Confidence: <span className={result.confidence === "high" ? "text-[color:var(--bio-green)]" : "text-[color:var(--warning)]"}>{result.confidence.toUpperCase()}</span></span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

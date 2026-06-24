@@ -1,0 +1,3 @@
+RUN cd ~/Desktop/BIOLens/biolens-backend 
+THEN python3 -m uvicorn main:app --reload
+THEN npm run dev
