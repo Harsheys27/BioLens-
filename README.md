@@ -1,4 +1,4 @@
-# 🧬 BioLens
+#  BioLens
 
 ## AI-Powered Genomic Intelligence Platform
 
